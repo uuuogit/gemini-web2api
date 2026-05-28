@@ -1,0 +1,119 @@
+# gemini-web2api
+
+将 Google Gemini 网页端转换为 OpenAI 兼容 API. 零认证, 零成本, 跨平台.
+
+## 特性
+
+- **零认证**: 不需要 API Key, 不需要 Google 账号 (匿名访问)
+- **OpenAI 兼容**: 直接替换 `/v1/chat/completions` 和 `/v1/models`
+- **工具调用**: 完整的 Function Calling 支持 (OpenAI 格式)
+- **多模型**: Flash, Flash Thinking (2万字+输出), Pro, Auto, Lite
+- **思考深度**: 通过 `@think=N` 后缀调节 (0=最深, 4=最浅)
+- **联网搜索**: 内置互联网访问 (Gemini 原生搜索能力)
+- **跨平台**: 纯 Python, 无外部依赖
+- **流式输出**: SSE Streaming 支持
+- **Codex CLI**: Responses API (`/v1/responses`) 兼容 OpenAI Codex
+
+## 快速开始
+
+```bash
+python gemini_web2api.py
+```
+
+服务启动在 `http://localhost:8081/v1`.
+
+## 客户端配置
+
+### Cherry Studio / ChatBox / 任何 OpenAI 兼容客户端
+
+| 字段 | 值 |
+|------|-----|
+| Base URL | `http://localhost:8081/v1` |
+| API Key | `none` (随便填) |
+| Model | `gemini-3.5-flash-thinking` |
+
+### curl
+
+```bash
+curl http://localhost:8081/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gemini-3.5-flash","messages":[{"role":"user","content":"你好!"}]}'
+```
+
+### OpenAI Python SDK
+
+```python
+from openai import OpenAI
+client = OpenAI(base_url="http://localhost:8081/v1", api_key="none")
+resp = client.chat.completions.create(
+    model="gemini-3.5-flash-thinking",
+    messages=[{"role": "user", "content": "解释量子计算"}]
+)
+print(resp.choices[0].message.content)
+```
+
+## 可用模型
+
+| 模型 | 说明 | 输出量 |
+|------|------|--------|
+| `gemini-3.5-flash` | 快速通用 | ~1.2万字 |
+| `gemini-3.5-flash-thinking` | 深度思考, 最长输出 | **~2万字** |
+| `gemini-3.5-flash-thinking-lite` | 自适应思考深度 | ~1.5万字 |
+| `gemini-3.1-pro` | Pro (需 cookie 才能真正路由) | ~1.2万字 |
+| `gemini-auto` | 自动选择模型 | 不定 |
+| `gemini-flash-lite` | 轻量快速 | ~1万字 |
+
+### 思考深度
+
+在模型名后追加 `@think=N`:
+
+```
+gemini-3.5-flash-thinking@think=0   # 最深 (默认)
+gemini-3.5-flash-thinking@think=2   # 中等
+gemini-3.5-flash-thinking@think=4   # 最浅
+```
+
+## 可选: Cookie 配置 (Pro 模型)
+
+匿名访问对所有模型有效, 但 `gemini-3.1-pro` 在无认证时会路由到 Flash. 要获得真正的 Pro 路由, 提供 cookie 文件:
+
+```bash
+python gemini_web2api.py --cookie-file cookie.txt
+```
+
+不需要付费订阅 — 免费 Google 账号即可.
+
+## 配置文件
+
+在同目录创建 `config.json`:
+
+```json
+{
+  "port": 8081,
+  "host": "0.0.0.0",
+  "retry_attempts": 3,
+  "retry_delay_sec": 2,
+  "request_timeout_sec": 180,
+  "cookie_file": null,
+  "log_requests": true
+}
+```
+
+## 系统要求
+
+- Python 3.8+
+- 无外部依赖 (仅标准库)
+- 需要能访问 `gemini.google.com` (部分地区需代理)
+
+## 工作原理
+
+逆向 Google Gemini 网页端的 StreamGenerate 协议, 将 OpenAI API 格式与 Gemini 内部 protobuf-like 格式互转. 模型选择通过请求 payload 的 `[79]` 字段控制, 映射自 Gemini 前端 JS 源码中的 `MODE_CATEGORY` 枚举.
+
+## 致谢
+
+- [linux.do](https://linux.do) 社区
+- 开源 API 代理生态
+
+## License
+
+MIT
